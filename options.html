@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Caption Generator - Settings</title>
+  <link rel="stylesheet" href="css/options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <img src="icons/icon48.png" alt="AI Caption Generator">
+        <h1>AI Caption Generator Settings</h1>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="settings-grid">
+        <!-- AI Configuration -->
+        <section class="settings-section">
+          <h2>AI Configuration</h2>
+          <div class="setting-group">
+            <label for="aiProvider">AI Provider</label>
+            <select id="aiProvider">
+              <option value="huggingface">Hugging Face (Free)</option>
+              <option value="openrouter">OpenRouter (Paid)</option>
+              <option value="google">Google Vision AI</option>
+              <option value="custom">Custom API</option>
+            </select>
+            <small>Choose your preferred AI service for image captioning</small>
+          </div>
+
+          <div class="setting-group">
+            <label for="apiKey">API Key</label>
+            <input type="password" id="apiKey" placeholder="Enter your API key">
+            <small>Your API key is stored locally and encrypted</small>
+          </div>
+
+          <div class="setting-group">
+            <label for="customEndpoint">Custom API Endpoint</label>
+            <input type="url" id="customEndpoint" placeholder="https://api.example.com/v1/caption">
+            <small>Only required when using custom API</small>
+          </div>
+
+          <div class="setting-group">
+            <label for="modelName">Model Name</label>
+            <input type="text" id="modelName" placeholder="gpt-4-vision-preview">
+            <small>Specify the exact model name to use</small>
+          </div>
+        </section>
+
+        <!-- Default Preferences -->
+        <section class="settings-section">
+          <h2>Default Preferences</h2>
+          <div class="setting-group">
+            <label for="defaultTone">Default Caption Tone</label>
+            <select id="defaultTone">
+              <option value="descriptive">Descriptive</option>
+              <option value="professional">Professional</option>
+              <option value="funny">Funny/Witty</option>
+              <option value="seo">SEO-Optimized</option>
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <label for="defaultLanguage">Default Language</label>
+            <select id="defaultLanguage">
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="zh">Chinese (Simplified)</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="ar">Arabic</option>
+              <option value="hi">Hindi</option>
+              <option value="ru">Russian</option>
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <label for="maxTokens">Max Response Length</label>
+            <input type="number" id="maxTokens" min="50" max="1000" value="300">
+            <small>Maximum tokens for AI response (50-1000)</small>
+          </div>
+        </section>
+
+        <!-- Performance Settings -->
+        <section class="settings-section">
+          <h2>Performance & Features</h2>
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="useOnDevice">
+              <span class="checkmark"></span>
+              Enable on-device processing (when available)
+            </label>
+            <small>Faster processing but may be less accurate than cloud APIs</small>
+          </div>
+
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="enableCache">
+              <span class="checkmark"></span>
+              Cache caption results
+            </label>
+            <small>Avoid re-processing the same images</small>
+          </div>
+
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="autoShare">
+              <span class="checkmark"></span>
+              Show share options automatically
+            </label>
+            <small>Display social sharing options after generating captions</small>
+          </div>
+        </section>
+
+        <!-- Privacy & Data -->
+        <section class="settings-section">
+          <h2>Privacy & Data</h2>
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="saveHistory">
+              <span class="checkmark"></span>
+              Save caption history locally
+            </label>
+            <small>Store generated captions for future reference</small>
+          </div>
+
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="anonymousAnalytics">
+              <span class="checkmark"></span>
+              Allow anonymous usage analytics
+            </label>
+            <small>Help improve the extension by sharing anonymous usage data</small>
+          </div>
+
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="gdprCompliance">
+              <span class="checkmark"></span>
+              Enable GDPR compliance mode
+            </label>
+            <small>Enhanced privacy protections for EU users</small>
+          </div>
+        </section>
+
+        <!-- Export & Backup -->
+        <section class="settings-section">
+          <h2>Export & Backup</h2>
+          <div class="setting-group">
+            <label for="exportFormat">Default Export Format</label>
+            <select id="exportFormat">
+              <option value="csv">CSV (Comma Separated)</option>
+              <option value="json">JSON (JavaScript Object)</option>
+              <option value="txt">Plain Text</option>
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <label for="backupFrequency">Automatic Backup</label>
+            <select id="backupFrequency">
+              <option value="never">Never</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <small>Automatically backup your settings and history</small>
+          </div>
+
+          <div class="action-buttons">
+            <button id="exportSettings" class="btn-secondary">Export Settings</button>
+            <button id="importSettings" class="btn-secondary">Import Settings</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+          </div>
+        </section>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="main-actions">
+        <button id="saveSettings" class="btn-primary">Save All Settings</button>
+        <button id="resetSettings" class="btn-danger">Reset to Defaults</button>
+        <button id="testConnection" class="btn-secondary">Test API Connection</button>
+      </div>
+
+      <!-- Status Messages -->
+      <div id="statusMessage" class="status-message"></div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-content">
+        <div class="links">
+          <a href="privacy-policy.html" target="_blank">Privacy Policy</a>
+          <a href="https://github.com/yourusername/ai-caption-generator" target="_blank">GitHub</a>
+          <a href="mailto:support@example.com">Support</a>
+        </div>
+        <div class="version">AI Caption Generator v1.0.0</div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="js/options.js"></script>
+</body>
+</html> 

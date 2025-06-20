@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Image Caption Generator</title>
+  <link rel="stylesheet" href="css/popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="logo">
+        <img src="icons/icon32.png" alt="AI Caption Generator">
+        <h1>AI Caption Generator</h1>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="generator">Generator</button>
+      <button class="tab-btn" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Generator Tab -->
+    <div class="tab-content active" id="generator">
+      <div class="section">
+        <h3>Quick Caption</h3>
+        <p class="description">Right-click any image and select "Generate AI Caption" to get started!</p>
+        
+        <div class="quick-settings">
+          <div class="setting-group">
+            <label for="quickTone">Tone:</label>
+            <select id="quickTone">
+              <option value="descriptive">Descriptive</option>
+              <option value="professional">Professional</option>
+              <option value="funny">Funny</option>
+              <option value="seo">SEO-Friendly</option>
+            </select>
+          </div>
+          
+          <div class="setting-group">
+            <label for="quickLanguage">Language:</label>
+            <select id="quickLanguage">
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="zh">Chinese</option>
+              <option value="ja">Japanese</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat-item">
+            <span class="stat-number" id="todayCount">0</span>
+            <span class="stat-label">Today</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="totalCount">0</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Features</h3>
+        <ul class="feature-list">
+          <li>✨ AI-powered image captioning</li>
+          <li>🎭 Multiple tone options</li>
+          <li>🌍 Multilingual support</li>
+          <li>📱 Social media sharing</li>
+          <li>📊 Export to CSV/Docs</li>
+          <li>🔒 Privacy-focused</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div class="tab-content" id="history">
+      <div class="section">
+        <div class="section-header">
+          <h3>Caption History</h3>
+          <div class="history-actions">
+            <button id="exportBtn" class="btn-secondary">Export</button>
+            <button id="clearHistoryBtn" class="btn-danger">Clear</button>
+          </div>
+        </div>
+        
+        <div class="search-bar">
+          <input type="text" id="historySearch" placeholder="Search captions...">
+        </div>
+
+        <div id="historyList" class="history-list">
+          <div class="empty-state">
+            <p>No captions generated yet. Right-click on any image to get started!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="settings">
+      <div class="section">
+        <h3>AI Settings</h3>
+        
+        <div class="setting-group">
+          <label for="aiProvider">AI Provider:</label>
+          <select id="aiProvider">
+            <option value="huggingface">Hugging Face (Free)</option>
+            <option value="openrouter">OpenRouter (Paid)</option>
+            <option value="google">Google Vision AI</option>
+            <option value="custom">Custom API</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <label for="apiKey">API Key:</label>
+          <input type="password" id="apiKey" placeholder="Enter your API key">
+          <small>Your API key is stored locally and never shared.</small>
+        </div>
+
+        <div class="setting-group">
+          <label for="customEndpoint">Custom Endpoint:</label>
+          <input type="url" id="customEndpoint" placeholder="https://api.example.com/v1/caption">
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Default Settings</h3>
+        
+        <div class="setting-group">
+          <label for="defaultTone">Default Tone:</label>
+          <select id="defaultTone">
+            <option value="descriptive">Descriptive</option>
+            <option value="professional">Professional</option>
+            <option value="funny">Funny</option>
+            <option value="seo">SEO-Friendly</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <label for="defaultLanguage">Default Language:</label>
+          <select id="defaultLanguage">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="it">Italian</option>
+            <option value="pt">Portuguese</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <label>
+            <input type="checkbox" id="useOnDevice">
+            Use on-device model (when available)
+          </label>
+          <small>Faster but less accurate than cloud APIs</small>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Privacy</h3>
+        
+        <div class="setting-group">
+          <label>
+            <input type="checkbox" id="saveHistory">
+            Save caption history locally
+          </label>
+        </div>
+
+        <div class="setting-group">
+          <label>
+            <input type="checkbox" id="anonymousAnalytics">
+            Allow anonymous usage analytics
+          </label>
+          <small>Helps improve the extension</small>
+        </div>
+      </div>
+
+      <div class="section">
+        <button id="saveSettings" class="btn-primary">Save Settings</button>
+        <button id="resetSettings" class="btn-secondary">Reset to Defaults</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <div class="footer-links">
+        <a href="privacy-policy.html" target="_blank">Privacy Policy</a>
+        <a href="https://github.com/yourusername/ai-caption-generator" target="_blank">GitHub</a>
+        <a href="mailto:support@example.com">Support</a>
+      </div>
+      <div class="version">v1.0.0</div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div id="exportModal" class="modal">
+    <div class="modal-content">
+      <h3>Export Caption History</h3>
+      <div class="export-options">
+        <button class="export-btn" data-format="csv">Export as CSV</button>
+        <button class="export-btn" data-format="json">Export as JSON</button>
+      </div>
+      <button class="modal-close">Cancel</button>
+    </div>
+  </div>
+
+  <script src="js/popup.js"></script>
+</body>
+</html> 
