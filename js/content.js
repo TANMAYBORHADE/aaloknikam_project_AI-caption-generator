@@ -539,7 +539,8 @@
     }
 
     // Default to best free vision model, but allow custom model selection
-    const model = apiSettings.modelName || 'qwen/qwen-2-vl-7b-instruct:free';
+   const model = apiSettings.modelName || 'mistralai/mistral-7b-instruct:free';
+
     
     try {
       // Convert image to base64
