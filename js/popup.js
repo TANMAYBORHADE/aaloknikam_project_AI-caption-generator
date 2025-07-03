@@ -49,6 +49,45 @@ function initializePopup() {
   document.querySelectorAll('.export-btn').forEach(btn => {
     btn.addEventListener('click', exportHistory);
   });
+  
+  // Keyword feature logic
+  const enableKeyword = document.getElementById('enableKeywordPopup');
+  const keywordGroup = document.getElementById('keywordGroupPopup');
+  const keywordInput = document.getElementById('keywordInputPopup');
+  const generateBtn = document.getElementById('generateCaptionBtn');
+  const regenerateBtn = document.getElementById('regenerateWithKeywordBtn');
+
+  enableKeyword.addEventListener('change', function() {
+    keywordGroup.style.display = this.checked ? '' : 'none';
+    regenerateBtn.style.display = this.checked ? '' : 'none';
+  });
+
+  // When user clicks Generate Caption (initial, without keyword)
+  generateBtn.addEventListener('click', async function() {
+    // ...existing logic to generate caption...
+    // After caption is generated, if keyword feature is enabled, show regenerate button
+    if (enableKeyword.checked) {
+      regenerateBtn.style.display = '';
+    }
+  });
+
+  // When user clicks Regenerate with Keyword
+  regenerateBtn.addEventListener('click', async function() {
+    const keyword = keywordInput.value.trim();
+    if (!keyword) {
+      showNotification('Please enter a keyword to use.');
+      return;
+    }
+    // Send message to content script to regenerate caption with keyword
+    // (You may need to implement this message handler in content.js)
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        action: 'generateCaption',
+        useKeyword: true,
+        keyword: keyword
+      });
+    });
+  });
 }
 
 // Load settings from storage
@@ -280,4 +319,4 @@ function showNotification(message, isError = false) {
       notification.remove();
     }
   }, 3000);
-} 
+}

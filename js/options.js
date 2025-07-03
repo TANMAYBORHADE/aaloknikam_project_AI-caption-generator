@@ -14,6 +14,9 @@ function initializeEventListeners() {
     document.getElementById('importFile').click();
   });
   document.getElementById('importFile').addEventListener('change', importSettings);
+  document.getElementById('enableKeyword').addEventListener('change', function() {
+    document.getElementById('keywordGroup').style.display = this.checked ? '' : 'none';
+  });
 }
 
 // Load settings from storage
@@ -43,7 +46,11 @@ async function loadSettings() {
       
       // Export & Backup
       exportFormat: 'csv',
-      backupFrequency: 'never'
+      backupFrequency: 'never',
+      
+      // Keywords
+      enableKeyword: false,
+      keyword: ''
     });
     
     // Populate form fields
@@ -80,6 +87,11 @@ function populateFormFields(settings) {
   // Export & Backup
   document.getElementById('exportFormat').value = settings.exportFormat;
   document.getElementById('backupFrequency').value = settings.backupFrequency;
+  
+  // Keywords
+  document.getElementById('enableKeyword').checked = settings.enableKeyword;
+  document.getElementById('keywordGroup').style.display = settings.enableKeyword ? '' : 'none';
+  document.getElementById('keywordInput').value = settings.keyword;
 }
 
 // Save all settings
@@ -109,7 +121,11 @@ async function saveAllSettings() {
       
       // Export & Backup
       exportFormat: document.getElementById('exportFormat').value,
-      backupFrequency: document.getElementById('backupFrequency').value
+      backupFrequency: document.getElementById('backupFrequency').value,
+      
+      // Keywords
+      enableKeyword: document.getElementById('enableKeyword').checked,
+      keyword: document.getElementById('keywordInput').value
     };
     
     await chrome.storage.sync.set(settings);
@@ -142,7 +158,9 @@ async function resetAllSettings() {
       anonymousAnalytics: false,
       gdprCompliance: false,
       exportFormat: 'csv',
-      backupFrequency: 'never'
+      backupFrequency: 'never',
+      enableKeyword: false,
+      keyword: ''
     };
     
     await chrome.storage.sync.set(defaults);
@@ -327,4 +345,4 @@ function showStatus(message, type = 'info') {
   setTimeout(() => {
     statusDiv.style.display = 'none';
   }, 5000);
-} 
+}

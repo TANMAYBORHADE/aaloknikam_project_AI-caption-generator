@@ -10,26 +10,36 @@
   let captionOverlay = null;
   let currentImage = null;
 
-  // Listen for messages from background script
+  // Listen for messages from background script and popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'generateCaption') {
-      handleImageCaption(request);
+      // If keyword feature is used, pass keyword to handler
+      handleImageCaption({
+        ...currentImage,
+        useKeyword: request.useKeyword,
+        keyword: request.keyword
+      });
       sendResponse({ received: true });
-      return true; // Keep message channel open
+      return true;
     }
-    return false; // Close message channel for other actions
+    return false;
   });
 
   // Handle image captioning request
   async function handleImageCaption(imageData) {
     try {
       currentImage = imageData;
-      
       // Show loading overlay
       showCaptionOverlay('Generating caption...', true);
       
       // Get user settings
       const settings = await getSettings();
+      
+      // If keyword feature is used, add to settings
+      if (imageData.useKeyword && imageData.keyword) {
+        settings.useKeyword = true;
+        settings.keyword = imageData.keyword;
+      }
       
       // Generate caption
       const caption = await generateCaption(imageData.imageUrl, settings);
@@ -104,7 +114,7 @@
       },
       body: JSON.stringify({
         image_url: imageUrl,
-        prompt: generatePrompt(settings.tone, settings.language),
+        prompt: generatePrompt(settings.tone, settings.language, settings.keyword),
         max_tokens: settings.maxTokens || 300
       })
     });
@@ -357,7 +367,7 @@
   }
 
   // Generate prompt based on settings
-  function generatePrompt(tone, language) {
+  function generatePrompt(tone, language, keyword) {
     let basePrompt = 'Generate a caption for this image';
     
     if (tone) {
@@ -379,6 +389,10 @@
     
     if (language && language !== 'en') {
       basePrompt += ` in ${language}`;
+    }
+    
+    if (keyword) {
+      basePrompt += `. Use the keyword: "${keyword}" in the caption`;
     }
     
     basePrompt += '. Keep it concise but meaningful.';

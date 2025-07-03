@@ -78,6 +78,24 @@
           <li>🔒 Privacy-focused</li>
         </ul>
       </div>
+
+      <div class="section">
+        <div class="setting-group checkbox-group">
+          <label>
+            <input type="checkbox" id="enableKeywordPopup">
+            <span class="checkmark"></span>
+            Use Keyword
+          </label>
+        </div>
+        <div class="setting-group" id="keywordGroupPopup" style="display: none;">
+          <label for="keywordInputPopup">Keyword</label>
+          <input type="text" id="keywordInputPopup" placeholder="e.g. beautiful">
+        </div>
+        <div class="action-buttons">
+          <button id="generateCaptionBtn" class="btn-primary">Generate Caption</button>
+          <button id="regenerateWithKeywordBtn" class="btn-secondary" style="display:none;">Regenerate with Keyword</button>
+        </div>
+      </div>
     </div>
 
     <!-- History Tab -->
@@ -216,4 +234,4 @@
 
   <script src="js/popup.js"></script>
 </body>
-</html> 
+</html>
