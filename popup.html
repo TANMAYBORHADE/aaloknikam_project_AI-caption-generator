@@ -27,7 +27,22 @@
     <div class="tab-content active" id="generator">
       <div class="section">
         <h3>Quick Caption</h3>
-        <p class="description">Right-click any image and select "Generate AI Caption" to get started!</p>
+        <p class="description">Right-click any image, or drag & drop an image below to get started!</p>
+        
+        <!-- Drag and Drop Area -->
+        <div class="drag-drop-area" id="dragDropArea">
+          <div class="drag-drop-content">
+            <div class="upload-icon">📷</div>
+            <p class="drag-text">Drag & drop an image here</p>
+            <p class="or-text">or</p>
+            <button class="browse-btn" id="browseBtn">Browse Files</button>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+          </div>
+          <div class="file-info" id="fileInfo" style="display: none;">
+            <div class="file-preview" id="filePreview"></div>
+            <div class="file-details" id="fileDetails"></div>
+          </div>
+        </div>
         
         <div class="quick-settings">
           <div class="setting-group">
@@ -92,8 +107,20 @@
           <input type="text" id="keywordInputPopup" placeholder="e.g. beautiful">
         </div>
         <div class="action-buttons">
-          <button id="generateCaptionBtn" class="btn-primary">Generate Caption</button>
+          <button id="generateCaptionBtn" class="btn-primary" disabled>Generate Caption</button>
           <button id="regenerateWithKeywordBtn" class="btn-secondary" style="display:none;">Regenerate with Keyword</button>
+        </div>
+        
+        <!-- Caption Result Area -->
+        <div class="caption-result" id="captionResult" style="display: none;">
+          <div class="result-header">
+            <h4>Generated Caption</h4>
+            <div class="result-actions">
+              <button class="btn-small btn-secondary" id="copyResultBtn">Copy</button>
+              <button class="btn-small btn-primary" id="shareResultBtn">Share</button>
+            </div>
+          </div>
+          <div class="caption-text" id="captionText"></div>
         </div>
       </div>
     </div>
