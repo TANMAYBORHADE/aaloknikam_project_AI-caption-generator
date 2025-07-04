@@ -9,7 +9,8 @@
     "storage",
     "activeTab",
     "scripting",
-    "notifications"
+    "notifications",
+    "clipboardRead"
   ],
   
   "host_permissions": [

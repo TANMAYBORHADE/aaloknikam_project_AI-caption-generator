@@ -55,10 +55,22 @@ function initializePopup() {
   });
 
   document.getElementById('browseBtn').addEventListener('click', () => fileInput.click());
+  document.getElementById('pasteBtn').addEventListener('click', handlePaste);
 
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     handleFile(file);
+  });
+
+  // Listen for paste events only in the drag-drop area
+  dragDropArea.addEventListener('paste', handlePasteEvent);
+  
+  // Make drag-drop area focusable for paste events
+  dragDropArea.setAttribute('tabindex', '0');
+  
+  // Focus drag-drop area when paste button is clicked
+  document.getElementById('pasteBtn').addEventListener('focus', () => {
+    dragDropArea.focus();
   });
 
   function handleFile(file) {
@@ -661,6 +673,100 @@ window.shareCaption = function(caption) {
     });
   }
 };
+
+// Handle paste from clipboard
+async function handlePaste() {
+  try {
+    // Check if clipboard API is available
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+      // Fallback for older browsers
+      showNotification('Please use Ctrl+V to paste the image', true);
+      return;
+    }
+    
+    // Read from clipboard
+    const clipboardItems = await navigator.clipboard.read();
+    
+    for (const clipboardItem of clipboardItems) {
+      // Check for image types
+      const imageTypes = clipboardItem.types.filter(type => type.startsWith('image/'));
+      
+      if (imageTypes.length > 0) {
+        const blob = await clipboardItem.getType(imageTypes[0]);
+        handlePastedImage(blob);
+        return;
+      }
+    }
+    
+    showNotification('No image found in clipboard. Copy an image first!', true);
+  } catch (error) {
+    console.error('Paste error:', error);
+    
+    // If permission denied or other error
+    if (error.name === 'NotAllowedError') {
+      showNotification('Clipboard access denied. Try using Ctrl+V instead.', true);
+    } else {
+      showNotification('Failed to paste image. Try copying the image again.', true);
+    }
+  }
+}
+
+// Handle paste event (Ctrl+V)
+function handlePasteEvent(e) {
+  e.preventDefault();
+  
+  const items = e.clipboardData.items;
+  
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      const blob = items[i].getAsFile();
+      handlePastedImage(blob);
+      return;
+    }
+  }
+  
+  showNotification('No image found in clipboard!', true);
+}
+
+// Process pasted image
+function handlePastedImage(blob) {
+  if (!blob) {
+    showNotification('Invalid image data', true);
+    return;
+  }
+  
+  // Create a File object from blob
+  const file = new File([blob], 'pasted-image.png', { type: blob.type });
+  
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    // Update UI
+    document.getElementById('filePreview').innerHTML = 
+      `<img src="${event.target.result}" alt="Pasted image">`;
+    document.getElementById('fileDetails').innerHTML = 
+      `<div class="file-name">Pasted Image</div>
+       <div class="file-size">${(blob.size / 1024).toFixed(2)} KB</div>`;
+    document.getElementById('fileInfo').style.display = 'flex';
+    
+    // Enable generate button
+    document.getElementById('generateCaptionBtn').disabled = false;
+    
+    // Show success feedback
+    const dragDropArea = document.getElementById('dragDropArea');
+    dragDropArea.classList.add('has-file');
+    
+    showNotification('Image pasted successfully!');
+  };
+  
+  reader.readAsDataURL(blob);
+  
+  // Store the file for later use
+  // Update the file input (virtual file)
+  const dataTransfer = new DataTransfer();
+  dataTransfer.items.add(file);
+  document.getElementById('fileInput').files = dataTransfer.files;
+}
 
 // Show notification
 function showNotification(message, isError = false) {

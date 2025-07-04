@@ -553,7 +553,7 @@
     }
 
     // Default to best free vision model, but allow custom model selection
-   const model = apiSettings.modelName || 'mistralai/mistral-7b-instruct:free';
+   const model = apiSettings.modelName || 'meta-llama/llama-4-maverick-17b-128e-instruct:free';
 
     
     try {

@@ -465,6 +465,14 @@ body {
   margin: 4px 0;
 }
 
+/* Button group for browse and paste */
+.button-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
 .browse-btn {
   background: #3b82f6;
   color: white;
@@ -479,6 +487,29 @@ body {
 
 .browse-btn:hover {
   background: #2563eb;
+}
+
+.paste-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.paste-btn:hover {
+  background: #059669;
+}
+
+.shortcut-text {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 8px;
+  margin-bottom: 0;
 }
 
 .file-info {
