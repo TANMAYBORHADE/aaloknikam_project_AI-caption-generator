@@ -74,6 +74,11 @@ function initializePopup() {
   });
 
   function handleFile(file) {
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput.files.length > 0) {
+      showNotification('A file is already selected. Remove it before adding another.', true);
+      return;
+    }
     if (!file || !file.type.startsWith('image/')) {
       showNotification('Please select a valid image file.', true);
       return;
@@ -371,13 +376,190 @@ async function generateOpenRouterCaption(imageDataUrl, settings, apiSettings) {
   return applyToneToCaption(caption.trim(), settings.tone);
 }
 
-// Placeholder for other providers
+// Generate caption using Google Vision API
 async function generateGoogleCaption(imageDataUrl, settings, apiSettings) {
-  throw new Error('Google Vision API not implemented yet.');
+  if (!apiSettings.apiKey) {
+    throw new Error('Google Vision API key is required. Please add your token in the extension settings.');
+  }
+
+  try {
+    // Validate that we have a proper image data URL
+    if (!imageDataUrl || typeof imageDataUrl !== 'string') {
+      throw new Error('Invalid image data provided');
+    }
+
+    // Check if it's actually an image data URL
+    if (!imageDataUrl.startsWith('data:image/')) {
+      throw new Error(`Expected image data URL, but got: ${imageDataUrl.substring(0, 50)}...`);
+    }
+
+    // Convert data URL to base64 content
+    const base64Content = imageDataUrl.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+    
+    // Validate base64 content
+    if (!base64Content || base64Content.length === 0) {
+      throw new Error('No base64 content found in image data URL');
+    }
+
+    // Optional: Validate base64 format (basic check)
+    try {
+      atob(base64Content.substring(0, 100)); // Test decode a small portion
+    } catch (e) {
+      throw new Error('Invalid base64 content in image data URL');
+    }
+
+    console.log('Sending image to Google Vision API...', {
+      apiKeyPresent: !!apiSettings.apiKey,
+      base64Length: base64Content.length,
+      imageDataPrefix: imageDataUrl.substring(0, 30)
+    });
+
+    // Call Google Vision API
+    const response = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${apiSettings.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: { content: base64Content },
+              features: [{ type: 'LABEL_DETECTION', maxResults: 5 }]
+            }
+          ]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        throw new Error(`Google Vision API error (${response.status}): ${errorText}`);
+      }
+      
+      const errorMessage = errorData.error?.message || response.statusText;
+      
+      // Provide more specific error messages
+      if (response.status === 400) {
+        throw new Error(`Invalid request to Google Vision API: ${errorMessage}`);
+      } else if (response.status === 401) {
+        throw new Error('Invalid Google Vision API key. Please check your API key in settings.');
+      } else if (response.status === 403) {
+        throw new Error('Google Vision API access denied. Please check your API key permissions and billing.');
+      } else if (response.status === 429) {
+        throw new Error('Google Vision API rate limit exceeded. Please try again later.');
+      } else {
+        throw new Error(`Google Vision API error (${response.status}): ${errorMessage}`);
+      }
+    }
+
+    const data = await response.json();
+    console.log('Google Vision API response:', data);
+
+    if (!data.responses || !data.responses[0]) {
+      throw new Error('Invalid response format from Google Vision API');
+    }
+
+    const responseData = data.responses[0];
+    
+    // Check for API errors in the response
+    if (responseData.error) {
+      throw new Error(`Google Vision API error: ${responseData.error.message}`);
+    }
+
+    if (!responseData.labelAnnotations || responseData.labelAnnotations.length === 0) {
+      throw new Error('No labels detected in the image. The image might be too unclear or contain no recognizable objects.');
+    }
+
+    // Create natural captions from labels
+    const labels = responseData.labelAnnotations.map(l => l.description);
+    let caption;
+    
+    // Create more natural caption from detected labels
+    caption = createNaturalCaption(labels, settings.tone, settings.useKeyword ? settings.keyword : null);
+
+    // Apply tone modifications (if not already applied above)
+    if (!settings.useKeyword || !settings.keyword) {
+      caption = applyToneToCaption(caption, settings.tone);
+    }
+
+    console.log('Successfully generated Google Vision caption:', caption);
+    return caption;
+    
+  } catch (error) {
+    console.error('Google Vision API error:', error);
+    throw error;
+  }
 }
 
 async function generateCustomCaption(imageDataUrl, settings, apiSettings) {
   throw new Error('Custom API not implemented yet.');
+}
+
+// Create natural captions from Google Vision labels
+function createNaturalCaption(labels, tone, keyword) {
+  if (!labels || labels.length === 0) {
+    return keyword ? `${keyword}: A serene scene captured.` : 'A serene scene captured.';
+  }
+
+  const relevantLabels = labels.slice(0, 5);
+  let caption = '';
+  const scenery = ['sky', 'cloud', 'sunset', 'sunrise', 'ocean', 'mountain', 'landscape', 'nature'];
+  const people = ['person', 'human', 'face', 'smile', 'portrait', 'selfie', 'group'];
+  const hasScenery = relevantLabels.some(label => scenery.some(s => label.toLowerCase().includes(s)));
+  const hasPeople = relevantLabels.some(label => people.some(p => label.toLowerCase().includes(p)));
+
+  if (hasScenery) {
+    switch (tone) {
+      case 'professional':
+        caption = `An awe-inspiring ${relevantLabels[0].toLowerCase()} paints the sky in relaxing hues, epitomizing tranquility.`;
+        break;
+      case 'funny':
+        caption = `Looks like the ${relevantLabels[0].toLowerCase()} is throwing a flamboyant costume party! 🌄🎉`;
+        break;
+      case 'seo':
+        const hashtags = relevantLabels.map(label => `#${label.toLowerCase().replace(/\s+/g, '')}`).join(' ');
+        caption = `Gorgeous view of ${relevantLabels[0].toLowerCase()}, a highlight for photography! ${hashtags}`;
+        break;
+      default:
+        caption = `A breathtaking view of ${relevantLabels[0].toLowerCase()} stretching beyond the horizon.`;
+    }
+  } else if (hasPeople) {
+    switch (tone) {
+      case 'professional':
+        caption = `A beautifully captured moment showcasing human connection and essence.`;
+        break;
+      case 'funny':
+        caption = `When humans try to outshine the natural beauty! 😄📸`;
+        break;
+      case 'seo':
+        caption = `Unforgettable human expressions captured for posterity. #portrait #memories #humanity`;
+        break;
+      default:
+        caption = `Capturing the charm and magic of human moments.`;
+    }
+  } else {
+    const mainSubject = relevantLabels[0].toLowerCase();
+    switch (tone) {
+      case 'professional':
+        caption = `A refined depiction of ${mainSubject}, showcasing intricate details.`;
+        break;
+      case 'funny':
+        caption = `Who knew ${mainSubject} could be this entertaining! 🎨`;
+        break;
+      case 'seo':
+        const objectHashtags = relevantLabels.map(label => `#${label.toLowerCase().replace(/\s+/g, '')}`).join(' ');
+        caption = `Focused depiction of ${mainSubject}, a unique display! ${objectHashtags}`;
+        break;
+      default:
+        caption = `The elegance and allure of ${mainSubject} on display.`;
+    }
+  }
+
+  return keyword ? `${keyword}: ${caption}` : caption;
 }
 
 // Apply tone modifications to caption
@@ -730,6 +912,11 @@ function handlePasteEvent(e) {
 
 // Process pasted image
 function handlePastedImage(blob) {
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput.files.length > 0) {
+    showNotification('A file is already selected. Remove it before pasting another.', true);
+    return;
+  }
   if (!blob) {
     showNotification('Invalid image data', true);
     return;
@@ -766,6 +953,18 @@ function handlePastedImage(blob) {
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(file);
   document.getElementById('fileInput').files = dataTransfer.files;
+}
+
+// Helper function to convert blob to base64 (if needed for other APIs)
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 // Show notification

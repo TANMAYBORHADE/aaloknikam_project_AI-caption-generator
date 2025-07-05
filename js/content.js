@@ -13,15 +13,32 @@
   // Listen for messages from background script and popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'generateCaption') {
-      // If keyword feature is used, pass keyword to handler
-      handleImageCaption({
-        ...currentImage,
-        useKeyword: request.useKeyword,
-        keyword: request.keyword
-      });
+      console.log('Received generateCaption message:', request);
+      
+      // Create image data object from request (right-click) or currentImage (popup)
+      const imageData = {
+        imageUrl: request.imageUrl || currentImage?.imageUrl,
+        imageAlt: request.imageAlt || currentImage?.imageAlt || '',
+        pageUrl: request.pageUrl || currentImage?.pageUrl || window.location.href,
+        useKeyword: request.useKeyword || false,
+        keyword: request.keyword || ''
+      };
+      
+      console.log('Processing image data:', imageData);
+      
+      // Validate that we have an image URL
+      if (!imageData.imageUrl) {
+        console.error('No image URL provided in request');
+        sendResponse({ error: 'No image URL provided' });
+        return false;
+      }
+      
+      // Handle the caption generation
+      handleImageCaption(imageData);
       sendResponse({ received: true });
       return true;
     }
+    
     return false;
   });
 
@@ -337,10 +354,172 @@
   }
 
   // Generate caption using Google Vision API (placeholder)
-  async function generateGoogleCaption(imageUrl, settings, apiSettings) {
-    // This would implement Google Vision API
-    // For now, return a placeholder
-    return `[Google Vision caption for image - implementation needed]`;
+// Generate caption using Google Vision API (label detection)
+async function generateGoogleCaption(imageUrl, settings, apiSettings) {
+  if (!apiSettings.apiKey) {
+    throw new Error('Google Vision API key is required. Please add your token in the extension settings.');
+  }
+
+  try {
+    // First, try to download image with error handling
+    console.log('Attempting to fetch image from URL:', imageUrl);
+    
+    let response;
+    try {
+      response = await fetch(imageUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'image/*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+    } catch (fetchError) {
+      throw new Error(`Cannot access image URL. This might be due to CORS restrictions or network issues. Try using the popup to upload the image directly instead.`);
+    }
+    
+    if (!response.ok) {
+      let errorMessage = '';
+      if (response.status === 404) {
+        errorMessage = 'Image not found (404). The image may have been moved or deleted.';
+      } else if (response.status === 403) {
+        errorMessage = 'Access denied (403). The website may be blocking direct image access.';
+      } else if (response.status === 401) {
+        errorMessage = 'Authentication required (401). This image requires login to access.';
+      } else {
+        errorMessage = `Failed to fetch image: ${response.status} ${response.statusText}`;
+      }
+      errorMessage += ' Try uploading the image directly using the extension popup instead.';
+      throw new Error(errorMessage);
+    }
+    
+    // Check if response is actually an image
+    const contentType = response.headers.get('content-type');
+    console.log('Response content-type:', contentType);
+    
+    if (!contentType || !contentType.startsWith('image/')) {
+      let errorMessage = `The URL returns ${contentType || 'unknown content'} instead of an image.`;
+      if (contentType && contentType.includes('text/html')) {
+        errorMessage += ' This usually means the image URL is broken or redirected to a webpage.';
+      }
+      errorMessage += ' Try right-clicking on the actual image and selecting "Copy image address", then use the extension popup to upload it directly.';
+      throw new Error(errorMessage);
+    }
+    
+    const imageBlob = await response.blob();
+    
+    // Validate blob size (Google Vision has limits)
+    if (imageBlob.size > 20 * 1024 * 1024) { // 20MB limit
+      throw new Error('Image is too large. Google Vision API supports images up to 20MB.');
+    }
+    
+    const base64Image = await blobToBase64(imageBlob);
+    
+    // Validate that we actually got an image data URL
+    if (!base64Image.startsWith('data:image/')) {
+      throw new Error(`Invalid image data. Expected image data URL, got: ${base64Image.substring(0, 50)}...`);
+    }
+    
+    // Remove data URL prefix
+    const base64Content = base64Image.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+
+  // Call Google Vision API
+  const visionResponse = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiSettings.apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: base64Content },
+            features: [{ type: 'LABEL_DETECTION', maxResults: 5 }]
+          }
+        ]
+      })
+    }
+  );
+
+  const data = await visionResponse.json();
+
+  if (!visionResponse.ok || !data.responses || !data.responses[0].labelAnnotations) {
+    throw new Error('Google Vision API error: ' + (data.error?.message || 'Unknown error'));
+  }
+
+  // Create natural captions from labels
+  const labels = data.responses[0].labelAnnotations.map(l => l.description);
+  let caption;
+  
+  // Create more natural caption from detected labels
+  caption = createNaturalCaption(labels, settings.tone, settings.useKeyword ? settings.keyword : null);
+
+  return caption;
+  } catch (error) {
+    console.error('Google Vision API error:', error);
+    throw error;
+  }
+}
+
+  // Create natural captions from Google Vision labels
+  function createNaturalCaption(labels, tone, keyword) {
+    if (!labels || labels.length === 0) {
+      return keyword ? `${keyword}: A serene scene captured.` : 'A serene scene captured.';
+    }
+
+    const relevantLabels = labels.slice(0, 5);
+    let caption = '';
+    const scenery = ['sky', 'cloud', 'sunset', 'sunrise', 'ocean', 'mountain', 'landscape', 'nature'];
+    const people = ['person', 'human', 'face', 'smile', 'portrait', 'selfie', 'group'];
+    const hasScenery = relevantLabels.some(label => scenery.some(s => label.toLowerCase().includes(s)));
+    const hasPeople = relevantLabels.some(label => people.some(p => label.toLowerCase().includes(p)));
+
+    if (hasScenery) {
+      switch (tone) {
+        case 'professional':
+          caption = `An awe-inspiring ${relevantLabels[0].toLowerCase()} paints the sky in relaxing hues, epitomizing tranquility.`;
+          break;
+        case 'funny':
+          caption = `Looks like the ${relevantLabels[0].toLowerCase()} is throwing a flamboyant costume party! 🌄🎉`;
+          break;
+        case 'seo':
+          const hashtags = relevantLabels.map(label => `#${label.toLowerCase().replace(/\s+/g, '')}`).join(' ');
+          caption = `Gorgeous view of ${relevantLabels[0].toLowerCase()}, a highlight for photography! ${hashtags}`;
+          break;
+        default:
+          caption = `A breathtaking view of ${relevantLabels[0].toLowerCase()} stretching beyond the horizon.`;
+      }
+    } else if (hasPeople) {
+      switch (tone) {
+        case 'professional':
+          caption = `A beautifully captured moment showcasing human connection and essence.`;
+          break;
+        case 'funny':
+          caption = `When humans try to outshine the natural beauty! 😄📸`;
+          break;
+        case 'seo':
+          caption = `Unforgettable human expressions captured for posterity. #portrait #memories #humanity`;
+          break;
+        default:
+          caption = `Capturing the charm and magic of human moments.`;
+      }
+    } else {
+      const mainSubject = relevantLabels[0].toLowerCase();
+      switch (tone) {
+        case 'professional':
+          caption = `A refined depiction of ${mainSubject}, showcasing intricate details.`;
+          break;
+        case 'funny':
+          caption = `Who knew ${mainSubject} could be this entertaining! 🎨`;
+          break;
+        case 'seo':
+          const objectHashtags = relevantLabels.map(label => `#${label.toLowerCase().replace(/\s+/g, '')}`).join(' ');
+          caption = `Focused depiction of ${mainSubject}, a unique display! ${objectHashtags}`;
+          break;
+        default:
+          caption = `The elegance and allure of ${mainSubject} on display.`;
+      }
+    }
+
+    return keyword ? `${keyword}: ${caption}` : caption;
   }
 
   // Apply tone modifications to caption
@@ -553,7 +732,7 @@
     }
 
     // Default to best free vision model, but allow custom model selection
-   const model = apiSettings.modelName || 'meta-llama/llama-4-maverick-17b-128e-instruct:free';
+   const model = apiSettings.modelName || 'meta-llama/llama-4-scout:free';
 
     
     try {
