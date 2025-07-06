@@ -128,67 +128,85 @@ function initializePopup() {
   // When user clicks Generate Caption (initial, without keyword)
   generateBtn.addEventListener('click', async function() {
     try {
-      // Get the uploaded image
-      const imageFile = fileInput.files[0];
-      if (!imageFile) {
-        showNotification('Please select an image first.', true);
-        return;
+      console.log('🔍 DEBUG: Generate Caption button clicked');
+      
+      let imageDataUrl = null;
+      
+      // Check if we have a pasted image stored
+      if (window.pastedImageDataUrl) {
+        console.log('🔍 DEBUG: Using stored pasted image data');
+        imageDataUrl = window.pastedImageDataUrl;
+      } else {
+        // Check for uploaded file
+        const imageFile = fileInput.files[0];
+        if (!imageFile) {
+          showNotification('Please select an image first.', true);
+          return;
+        }
+        
+        console.log('🔍 DEBUG: Converting uploaded file to data URL');
+        // Convert file to data URL
+        const reader = new FileReader();
+        imageDataUrl = await new Promise((resolve, reject) => {
+          reader.onload = (event) => resolve(event.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(imageFile);
+        });
       }
+      
+      console.log('🔍 DEBUG: Image data URL ready, length:', imageDataUrl.length);
 
       // Show loading state
       generateBtn.innerHTML = '<div class="loading-spinner"></div>Generating...';
       generateBtn.disabled = true;
 
-      // Convert file to data URL
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const imageDataUrl = event.target.result;
-        
-        // Get current settings
-        const tone = document.getElementById('quickTone').value;
-        const language = document.getElementById('quickLanguage').value;
-        const keyword = enableKeyword.checked ? keywordInput.value.trim() : null;
-        
-        // Generate caption
-        const caption = await generateCaptionFromFile(imageDataUrl, {
-          tone,
-          language,
-          useKeyword: enableKeyword.checked,
-          keyword
-        });
-        
-        // Display result
-        document.getElementById('captionText').textContent = caption;
-        document.getElementById('captionResult').style.display = 'block';
-        
-        // Show regenerate button if keyword feature is enabled
-        if (enableKeyword.checked) {
-          regenerateBtn.style.display = '';
+      // Get current settings
+      const tone = document.getElementById('quickTone').value;
+      const language = document.getElementById('quickLanguage').value;
+      const keyword = enableKeyword.checked ? keywordInput.value.trim() : null;
+      
+      console.log('🔍 DEBUG: Settings:', { tone, language, keyword, useKeyword: enableKeyword.checked });
+      
+      // Generate caption
+      const caption = await generateCaptionFromFile(imageDataUrl, {
+        tone,
+        language,
+        useKeyword: enableKeyword.checked,
+        keyword
+      });
+      
+      console.log('🔍 DEBUG: Caption generated:', caption);
+      
+      // Display result
+      document.getElementById('captionText').textContent = caption;
+      document.getElementById('captionResult').style.display = 'block';
+      
+      // Show regenerate button if keyword feature is enabled
+      if (enableKeyword.checked) {
+        regenerateBtn.style.display = '';
+      }
+      
+      // Save to history with proper callback
+      chrome.runtime.sendMessage({
+        action: 'saveCaption',
+        data: {
+          imageUrl: imageDataUrl,
+          caption: caption,
+          tone: tone,
+          language: language,
+          pageUrl: 'Extension Upload',
+          timestamp: Date.now()
         }
-        
-        // Save to history with proper callback
-        chrome.runtime.sendMessage({
-          action: 'saveCaption',
-          data: {
-            imageUrl: imageDataUrl,
-            caption: caption,
-            tone: tone,
-            language: language,
-            pageUrl: 'Extension Upload',
-            timestamp: Date.now()
-          }
-        }, (response) => {
-          console.log('Caption saved to history:', response);
-          // Update stats after successful save
-          setTimeout(() => {
-            updateStats();
-          }, 100);
-        });
-      };
-      reader.readAsDataURL(imageFile);
+      }, (response) => {
+        console.log('Caption saved to history:', response);
+        // Update stats after successful save
+        setTimeout(() => {
+          updateStats();
+        }, 100);
+      });
       
     } catch (error) {
-      console.error('Error generating caption:', error);
+      console.error('🔍 DEBUG: Error generating caption:', error);
       showNotification('Error generating caption: ' + error.message, true);
     } finally {
       generateBtn.innerHTML = 'Generate Caption';
@@ -281,31 +299,64 @@ async function generateHuggingFaceCaption(imageDataUrl, settings, apiSettings) {
     'Salesforce/blip-image-captioning-large'
   ];
   
+  console.log('🔍 DEBUG: Starting HF caption generation');
+  console.log('🔍 DEBUG: Image data URL prefix:', imageDataUrl.substring(0, 50));
+  console.log('🔍 DEBUG: Image data URL length:', imageDataUrl.length);
+  
   // Convert data URL to blob
   const response = await fetch(imageDataUrl);
   const blob = await response.blob();
   
+  console.log('🔍 DEBUG: Blob created - Size:', blob.size, 'Type:', blob.type);
+  
+  // Create a unique identifier for this image to track if we're getting cached responses
+  const imageHash = btoa(imageDataUrl.substring(50, 150)).substring(0, 10);
+  console.log('🔍 DEBUG: Image hash for tracking:', imageHash);
+  
   for (const modelName of models) {
     try {
-      const formData = new FormData();
-      formData.append('file', blob);
+      console.log(`🔍 DEBUG: Trying model ${modelName} with image hash ${imageHash}`);
       
-      const headers = {};
+      const formData = new FormData();
+      // Add timestamp to filename to prevent caching
+      formData.append('file', blob, `image-${Date.now()}-${imageHash}.png`);
+      
+      const headers = {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
       if (apiSettings.apiKey) {
         headers['Authorization'] = `Bearer ${apiSettings.apiKey}`;
       }
       
+      console.log('🔍 DEBUG: Making API request to', modelName);
       const apiResponse = await fetch(`https://api-inference.huggingface.co/models/${modelName}`, {
         method: 'POST',
         headers: headers,
         body: formData
       });
       
+      console.log('🔍 DEBUG: API response status:', apiResponse.status);
+      
       if (!apiResponse.ok) {
+        const errorText = await apiResponse.text();
+        console.log('🔍 DEBUG: API error:', errorText);
         continue; // Try next model
       }
       
-      const data = await apiResponse.json();
+      const responseText = await apiResponse.text();
+      console.log('🔍 DEBUG: Raw API response:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.log('🔍 DEBUG: Failed to parse JSON:', e);
+        continue;
+      }
+      
+      console.log('🔍 DEBUG: Parsed API response:', data);
+      
       let caption;
       
       if (Array.isArray(data) && data.length > 0) {
@@ -313,14 +364,19 @@ async function generateHuggingFaceCaption(imageDataUrl, settings, apiSettings) {
       } else if (data.generated_text) {
         caption = data.generated_text;
       } else {
+        console.log('🔍 DEBUG: Unexpected response format');
         continue; // Try next model
       }
       
+      console.log('🔍 DEBUG: Extracted caption:', caption);
+      
       if (typeof caption === 'string' && caption.trim()) {
-        return applyToneToCaption(caption.trim(), settings.tone);
+        const finalCaption = applyToneToCaption(caption.trim(), settings.tone);
+        console.log('🔍 DEBUG: Final caption after tone:', finalCaption);
+        return finalCaption;
       }
     } catch (error) {
-      console.warn(`Error with model ${modelName}:`, error);
+      console.warn(`🔍 DEBUG: Error with model ${modelName}:`, error);
       continue;
     }
   }
@@ -330,12 +386,22 @@ async function generateHuggingFaceCaption(imageDataUrl, settings, apiSettings) {
 
 // Generate caption using OpenRouter API (simplified version)
 async function generateOpenRouterCaption(imageDataUrl, settings, apiSettings) {
+  console.log('🔍 DEBUG: Starting OpenRouter caption generation');
+  console.log('🔍 DEBUG: Image data URL prefix:', imageDataUrl.substring(0, 50));
+  console.log('🔍 DEBUG: Image data URL length:', imageDataUrl.length);
+  console.log('🔍 DEBUG: Settings:', settings);
+  console.log('🔍 DEBUG: API settings:', { ...apiSettings, apiKey: apiSettings.apiKey ? 'PRESENT' : 'MISSING' });
+  
   if (!apiSettings.apiKey) {
-    throw new Error('OpenRouter API key is required.');
+    throw new Error('OpenRouter API key is required. Please add your API key in Settings.');
   }
   
-  const model = 'mistralai/mistral-7b-instruct:free';
+  // Use a valid OpenRouter vision model
+  const model = 'google/gemma-3-27b-it:free';
+  console.log('🔍 DEBUG: Using OpenRouter model:', model);
+  
   const prompt = generatePrompt(settings.tone, settings.language, settings.keyword);
+  console.log('🔍 DEBUG: Generated prompt:', prompt);
   
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -1016,7 +1082,18 @@ function handlePastedImage(blob) {
     const dragDropArea = document.getElementById('dragDropArea');
     dragDropArea.classList.add('has-file');
     
-    showNotification('Image pasted successfully!');
+    showNotification('Image pasted successfully! Generating caption...');
+    
+    // Store the image data URL globally for the generate button to use
+    window.pastedImageDataUrl = imageDataUrl;
+    
+    // Automatically generate caption for pasted image
+    setTimeout(() => {
+      const generateBtn = document.getElementById('generateCaptionBtn');
+      if (generateBtn && !generateBtn.disabled) {
+        generateBtn.click();
+      }
+    }, 500);
   };
   
   reader.onerror = (error) => {
@@ -1026,11 +1103,14 @@ function handlePastedImage(blob) {
   
   reader.readAsDataURL(blob);
   
-  // Store the file for later use
-  // Update the file input (virtual file)
-  const dataTransfer = new DataTransfer();
-  dataTransfer.items.add(file);
-  document.getElementById('fileInput').files = dataTransfer.files;
+  // Also try to update file input as fallback
+  try {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    document.getElementById('fileInput').files = dataTransfer.files;
+  } catch (e) {
+    console.log('Virtual file creation failed, using stored data URL instead');
+  }
 }
 
 // Helper function to convert blob to base64 (if needed for other APIs)
