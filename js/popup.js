@@ -166,7 +166,7 @@ function initializePopup() {
           regenerateBtn.style.display = '';
         }
         
-        // Save to history
+        // Save to history with proper callback
         chrome.runtime.sendMessage({
           action: 'saveCaption',
           data: {
@@ -177,9 +177,13 @@ function initializePopup() {
             pageUrl: 'Extension Upload',
             timestamp: Date.now()
           }
+        }, (response) => {
+          console.log('Caption saved to history:', response);
+          // Update stats after successful save
+          setTimeout(() => {
+            updateStats();
+          }, 100);
         });
-        
-        updateStats();
       };
       reader.readAsDataURL(imageFile);
       
@@ -972,17 +976,36 @@ function handlePastedImage(blob) {
     return;
   }
   
-  // Create a File object from blob
-  const file = new File([blob], 'pasted-image.png', { type: blob.type });
+  console.log('Processing pasted image:', blob.type, blob.size, 'bytes');
   
-  // Show preview
+  // Ensure we have a proper image type
+  let imageType = blob.type;
+  if (!imageType || !imageType.startsWith('image/')) {
+    // Default to PNG if type is unknown
+    imageType = 'image/png';
+    console.log('Unknown image type, defaulting to PNG');
+  }
+  
+  // Create a File object from blob with proper type
+  const file = new File([blob], 'pasted-image.png', { type: imageType });
+  
+  // Show preview with high quality settings
   const reader = new FileReader();
   reader.onload = (event) => {
+    const imageDataUrl = event.target.result;
+    console.log('Image data URL created, length:', imageDataUrl.length);
+    
+    // Validate the data URL
+    if (!imageDataUrl.startsWith('data:image/')) {
+      showNotification('Invalid image format. Please try copying the image again.', true);
+      return;
+    }
+    
     // Update UI
     document.getElementById('filePreview').innerHTML = 
-      `<img src="${event.target.result}" alt="Pasted image">`;
+      `<img src="${imageDataUrl}" alt="Pasted image" style="max-width: 100%; height: auto;">`;
     document.getElementById('fileDetails').innerHTML = 
-      `<div class="file-name">Pasted Image</div>
+      `<div class="file-name">Pasted Image (${imageType})</div>
        <div class="file-size">${(blob.size / 1024).toFixed(2)} KB</div>`;
     document.getElementById('fileInfo').style.display = 'flex';
     
@@ -994,6 +1017,11 @@ function handlePastedImage(blob) {
     dragDropArea.classList.add('has-file');
     
     showNotification('Image pasted successfully!');
+  };
+  
+  reader.onerror = (error) => {
+    console.error('Error reading pasted image:', error);
+    showNotification('Failed to process pasted image. Please try again.', true);
   };
   
   reader.readAsDataURL(blob);

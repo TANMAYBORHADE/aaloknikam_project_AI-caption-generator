@@ -619,15 +619,69 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
     }
   }
 
-  // Copy to clipboard
+  // Copy to clipboard with fallback methods
   window.copyToClipboard = function(text) {
-    navigator.clipboard.writeText(text).then(() => {
-      showNotification('Caption copied to clipboard!');
-    }).catch(err => {
-      console.error('Failed to copy:', err);
-      showNotification('Failed to copy caption', true);
-    });
+    // Method 1: Modern clipboard API (preferred)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showNotification('Caption copied to clipboard!');
+      }).catch(err => {
+        console.error('Clipboard API failed:', err);
+        // Fallback to legacy method
+        fallbackCopyToClipboard(text);
+      });
+    } else {
+      // Fallback for older browsers or when clipboard API is not available
+      fallbackCopyToClipboard(text);
+    }
   };
+
+  // Fallback copy method using textarea
+  function fallbackCopyToClipboard(text) {
+    try {
+      // Create temporary textarea
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      textArea.style.top = '-9999px';
+      textArea.style.opacity = '0';
+      
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      // Try to copy using document.execCommand
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        showNotification('Caption copied to clipboard!');
+      } else {
+        showNotification('Please manually copy the caption text', true);
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      // Last resort: show the text in a prompt for manual copy
+      showCopyPrompt(text);
+    }
+  }
+
+  // Show copy prompt as last resort
+  function showCopyPrompt(text) {
+    const promptOverlay = document.createElement('div');
+    promptOverlay.className = 'ai-caption-copy-prompt';
+    promptOverlay.innerHTML = `
+      <div class="copy-prompt-content">
+        <h3>Copy Caption</h3>
+        <p>Please manually copy the caption below:</p>
+        <textarea readonly onclick="this.select()">${text}</textarea>
+        <button onclick="this.parentElement.parentElement.remove()">Close</button>
+      </div>
+    `;
+    
+    document.body.appendChild(promptOverlay);
+  }
 
   // Show share options
   window.showShareOptions = function(caption) {
@@ -922,6 +976,7 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
     
     return prompt;
   }
+
 
   // Helper function to convert blob to base64
   function blobToBase64(blob) {

@@ -10,7 +10,8 @@
     "activeTab",
     "scripting",
     "notifications",
-    "clipboardRead"
+    "clipboardRead",
+    "clipboardWrite"
   ],
   
   "host_permissions": [
