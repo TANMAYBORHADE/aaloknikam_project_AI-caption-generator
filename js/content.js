@@ -747,8 +747,8 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
       
       console.log(`Making request to OpenRouter with model: ${model}`);
       
-      // Generate a contextual prompt based on settings
-      const prompt = generateOpenRouterPrompt(settings.tone, settings.language);
+      // Generate a contextual prompt based on settings (including keyword)
+      const prompt = generateOpenRouterPrompt(settings.tone, settings.language, settings.keyword);
       
       const apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -779,7 +779,9 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
             }
           ],
           max_tokens: apiSettings.maxTokens || 300,
-          temperature: 0.7
+          temperature: 0.7,
+          n: 1,
+          stop: null
         })
       });
 
@@ -828,7 +830,7 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
   }
 
   // Generate prompt for OpenRouter based on settings
-  function generateOpenRouterPrompt(tone, language) {
+  function generateOpenRouterPrompt(tone, language, keyword = null) {
     let prompt = 'Please provide a caption for this image';
     
     // Add tone instructions
@@ -847,6 +849,11 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
         break;
       default:
         prompt += ' in a clear and engaging way';
+    }
+    
+    // Add keyword integration instructions (IMPROVED)
+    if (keyword && keyword.trim()) {
+      prompt += `. IMPORTANT: Naturally incorporate the concept "${keyword.trim()}" into the caption content. Don't just add it as a prefix or suffix - weave it meaningfully into the description so it feels natural and relevant to what's shown in the image`;
     }
     
     // Add language instructions

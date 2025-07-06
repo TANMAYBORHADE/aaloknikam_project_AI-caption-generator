@@ -357,7 +357,9 @@ async function generateOpenRouterCaption(imageDataUrl, settings, apiSettings) {
         }]
       }],
       max_tokens: 300,
-      temperature: 0.7
+      temperature: 0.7,
+      n: 1,
+      stop: null
     })
   });
   
@@ -599,12 +601,13 @@ function generatePrompt(tone, language, keyword) {
     }
   }
   
-  if (language && language !== 'en') {
-    basePrompt += ` in ${language}`;
+  // IMPROVED keyword integration
+  if (keyword && keyword.trim()) {
+    basePrompt += `. IMPORTANT: Naturally incorporate the concept "${keyword.trim()}" into the caption content. Don't just add it as a prefix or suffix - weave it meaningfully into the description so it feels natural and relevant to what's shown in the image`;
   }
   
-  if (keyword) {
-    basePrompt += `. Use the keyword: "${keyword}" in the caption`;
+  if (language && language !== 'en') {
+    basePrompt += ` in ${language}`;
   }
   
   basePrompt += '. Keep it concise but meaningful.';
