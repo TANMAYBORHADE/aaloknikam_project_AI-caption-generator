@@ -732,7 +732,7 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
     }
 
     // Default to best free vision model, but allow custom model selection
-   const model = apiSettings.modelName || 'meta-llama/llama-4-scout:free';
+   const model = apiSettings.modelName || 'google/gemma-3-27b-it:free';
 
     
     try {
