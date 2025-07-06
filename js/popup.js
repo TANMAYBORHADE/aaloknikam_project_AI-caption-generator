@@ -369,13 +369,60 @@ async function generateOpenRouterCaption(imageDataUrl, settings, apiSettings) {
   }
   
   const data = await response.json();
-  const caption = data.choices?.[0]?.message?.content;
+  let caption = data.choices?.[0]?.message?.content;
   
   if (!caption) {
     throw new Error('No response from OpenRouter API');
   }
   
-  return applyToneToCaption(caption.trim(), settings.tone);
+  // Clean up the caption and handle multiple options
+  caption = caption.trim();
+  
+  // Enhanced detection for multiple options in any language
+  const multipleOptionPatterns = [
+    /option\s*\d+/i,
+    /\d+\s*[.\)\:]\s*/,
+    /\*\*\d+\*\*/,
+    /choice\s*\d+/i,
+    /caption\s*\d+/i,
+    /version\s*\d+/i,
+    /opción\s*\d+/i,  // Spanish
+    /opção\s*\d+/i,   // Portuguese
+    /option\s*\d+/i,  // French
+    /variante\s*\d+/i, // French/Italian
+    /\d+\s*\)/,
+    /^\d+\s*-/,
+    /here\s+are/i,
+    /different\s+captions/i,
+    /multiple\s+options/i
+  ];
+  
+  const hasMultipleOptions = multipleOptionPatterns.some(pattern => pattern.test(caption));
+  
+  if (hasMultipleOptions || caption.split('\n').length > 2) {
+    // Split by various separators and take the first meaningful caption
+    const lines = caption.split(/\n|option\s*\d+[.:)]?|choice\s*\d+[.:)]?|caption\s*\d+[.:)]?|\d+\s*[.\)\:]-?|\*\*\d+\*\*|opción\s*\d+|opção\s*\d+|variante\s*\d+/i);
+    
+    for (const line of lines) {
+      let cleanLine = line.trim();
+      // Remove common prefixes
+      cleanLine = cleanLine.replace(/^[:\-\s\*]+/, '').trim();
+      cleanLine = cleanLine.replace(/^(here\s+(is|are)|caption|option|choice|opción|opção|variante)\s*:?\s*/i, '').trim();
+      
+      if (cleanLine && 
+          cleanLine.length > 15 && 
+          !cleanLine.toLowerCase().includes('option') &&
+          !cleanLine.toLowerCase().includes('choice') &&
+          !cleanLine.toLowerCase().includes('caption') &&
+          !cleanLine.toLowerCase().includes('here are') &&
+          !/^\d+[.\)\:]/.test(cleanLine)) {
+        caption = cleanLine;
+        break;
+      }
+    }
+  }
+  
+  return applyToneToCaption(caption, settings.tone);
 }
 
 // Generate caption using Google Vision API
@@ -582,7 +629,7 @@ function applyToneToCaption(caption, tone) {
 
 // Generate prompt based on settings
 function generatePrompt(tone, language, keyword) {
-  let basePrompt = 'Generate a caption for this image';
+  let basePrompt = 'Generate a single caption for this image';
   
   if (tone) {
     switch (tone) {
@@ -610,7 +657,7 @@ function generatePrompt(tone, language, keyword) {
     basePrompt += ` in ${language}`;
   }
   
-  basePrompt += '. Keep it concise but meaningful.';
+  basePrompt += '. Keep it concise but meaningful. Provide only one caption, not multiple options or variations.';
   
   return basePrompt;
 }

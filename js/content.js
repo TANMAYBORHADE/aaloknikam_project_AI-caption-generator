@@ -814,8 +814,52 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
         throw new Error('Invalid response format from OpenRouter API');
       }
 
-      // Clean up the caption
+      // Clean up the caption and handle multiple options
       caption = caption.trim();
+      
+      // Enhanced detection for multiple options in any language
+      const multipleOptionPatterns = [
+        /option\s*\d+/i,
+        /\d+\s*[.\)\:]\s*/,
+        /\*\*\d+\*\*/,
+        /choice\s*\d+/i,
+        /caption\s*\d+/i,
+        /version\s*\d+/i,
+        /opción\s*\d+/i,  // Spanish
+        /opção\s*\d+/i,   // Portuguese
+        /option\s*\d+/i,  // French
+        /variante\s*\d+/i, // French/Italian
+        /\d+\s*\)/,
+        /^\d+\s*-/,
+        /here\s+are/i,
+        /different\s+captions/i,
+        /multiple\s+options/i
+      ];
+      
+      const hasMultipleOptions = multipleOptionPatterns.some(pattern => pattern.test(caption));
+      
+      if (hasMultipleOptions || caption.split('\n').length > 2) {
+        // Split by various separators and take the first meaningful caption
+        const lines = caption.split(/\n|option\s*\d+[.:)]?|choice\s*\d+[.:)]?|caption\s*\d+[.:)]?|\d+\s*[.\)\:]-?|\*\*\d+\*\*|opción\s*\d+|opção\s*\d+|variante\s*\d+/i);
+        
+        for (const line of lines) {
+          let cleanLine = line.trim();
+          // Remove common prefixes
+          cleanLine = cleanLine.replace(/^[:\-\s\*]+/, '').trim();
+          cleanLine = cleanLine.replace(/^(here\s+(is|are)|caption|option|choice|opción|opção|variante)\s*:?\s*/i, '').trim();
+          
+          if (cleanLine && 
+              cleanLine.length > 15 && 
+              !cleanLine.toLowerCase().includes('option') &&
+              !cleanLine.toLowerCase().includes('choice') &&
+              !cleanLine.toLowerCase().includes('caption') &&
+              !cleanLine.toLowerCase().includes('here are') &&
+              !/^\d+[.\)\:]/.test(cleanLine)) {
+            caption = cleanLine;
+            break;
+          }
+        }
+      }
       
       // Apply tone modifications if needed (OpenRouter models usually handle this well already)
       caption = applyToneToCaption(caption, settings.tone);
@@ -831,7 +875,7 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
 
   // Generate prompt for OpenRouter based on settings
   function generateOpenRouterPrompt(tone, language, keyword = null) {
-    let prompt = 'Please provide a caption for this image';
+    let prompt = 'Please provide a single caption for this image';
     
     // Add tone instructions
     switch (tone) {
@@ -874,7 +918,7 @@ async function generateGoogleCaption(imageUrl, settings, apiSettings) {
       prompt += ` in ${languageNames[language] || language}`;
     }
     
-    prompt += '. Keep the caption concise but meaningful, suitable for social media use.';
+    prompt += '. Keep the caption concise but meaningful, suitable for social media use. Provide only one caption, not multiple options or variations.';
     
     return prompt;
   }
